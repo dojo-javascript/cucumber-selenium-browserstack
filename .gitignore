@@ -2,3 +2,4 @@ node_modules
 browserstack.err
 local.log
 npm-debug.*
+conf/single.conf.js
