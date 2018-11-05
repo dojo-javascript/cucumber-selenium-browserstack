@@ -31,7 +31,8 @@ const createBrowserStackWebdriver = () =>
       // Code to start browserstack local before start of test and stop browserstack local after end of test
       bs_local = new browserstack.Local();
       bs_local.start({ key: accessKey }, function(error) {
-        if (error) return console.log(error.red);
+        if (error && error.LocalError && process.env.VERBOSE)
+          return console.log(error);
 
         resolve(createBrowserStackSession(config, caps));
       });
@@ -40,27 +41,28 @@ const createBrowserStackWebdriver = () =>
     }
   });
 
-Before(async function() {
+Before(function(scenario, callback) {
   global.webdriver = this.webdriver = webdriver;
 
   if (process.env.NODE_ENV !== "browserstack") {
     global.driver = this.driver = new webdriver.Builder()
       .forBrowser("chrome")
       .build();
-    return;
+    return callback();
   }
 
-  try {
-    global.driver = this.driver = await createBrowserStackWebdriver();
-  } catch (e) {
-    console.error(e);
-  }
+  global.driver = this.driver = createBrowserStackWebdriver()
+    .then(driver => {
+      global.driver = this.driver = driver;
+      callback && callback();
+    })
+    .catch(callback);
 });
 
-After(async function() {
-  await this.driver.quit();
-
-  if (bs_local) {
-    bs_local.stop();
-  }
+After(function(scenario, callback) {
+  global.driver.quit().then(() => {
+    if (bs_local) {
+      bs_local.stop(callback);
+    } else callback();
+  });
 });
